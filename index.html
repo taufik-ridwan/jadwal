@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jadwal Tindakan - Final V10 (Refined)</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    
+    <style>
+        /* General Page Styling */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f7f6;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1250px;
+            margin: 0 auto 40px auto;
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+
+        h2 {
+            margin-top: 0;
+            color: #2c3e50;
+            border-left: 6px solid #3498db;
+            padding-left: 15px;
+            margin-bottom: 25px;
+        }
+
+        /* --- FORM GRID SYSTEM --- */
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+
+        @media (min-width: 768px) {
+            .form-grid {
+                grid-template-columns: repeat(4, 1fr);
+            }
+            .col-1 { grid-column: span 1; }
+            .col-2 { grid-column: span 2; }
+            .col-4 { grid-column: span 4; }
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        label {
+            margin-bottom: 8px;
+            font-size: 13px;
+            font-weight: 700;
+            color: #444;
+            text-transform: uppercase;
+        }
+
+        input, select {
+            padding: 10px 12px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+            width: 100%;
+            box-sizing: border-box; 
+            background-color: #fff;
+            transition: border 0.2s;
+        }
+
+        input:focus, select:focus {
+            border-color: #3498db;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+        }
+
+        select {
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233498db' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            background-size: 16px;
+            padding-right: 30px;
+        }
+
+        /* BUTTONS */
+        .btn-group {
+            grid-column: 1 / -1;
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .btn-submit {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 14px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 4px;
+            cursor: pointer;
+            flex: 1;
+            transition: background 0.2s;
+        }
+        .btn-submit:hover { background-color: #2980b9; }
+
+        .header-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-io {
+            border: none;
+            padding: 10px 20px;
+            font-size: 14px;
+            font-weight: bold;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-export { background-color: #27ae60; color: white; }
+        .btn-export:hover { background-color: #219150; }
+
+        .btn-import { background-color: #f39c12; color: white; }
+        .btn-import:hover { background-color: #e67e22; }
+
+        .btn-jpg { background-color: #8e44ad; color: white; }
+        .btn-jpg:hover { background-color: #7d3c98; }
+
+        .btn-action {
+            padding: 6px 0;
+            margin: 2px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+            transition: all 0.2s;
+            display: inline-block;
+            width: 80px;
+            text-align: center;
+        }
+
+        .btn-edit { background-color: transparent; color: #3498db; border: 1px solid #3498db; }
+        .btn-edit:hover { background-color: #3498db; color: white; }
+        
+        .btn-delete { background-color: transparent; color: #e74c3c; border: 1px solid #e74c3c; }
+        .btn-delete:hover { background-color: #e74c3c; color: white; }
+
+        /* --- TABLE STYLING --- */
+        .table-wrapper {
+            overflow-x: auto;
+            background-color: white; 
+            padding: 5px; 
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            font-family: Arial, sans-serif;
+            margin-top: 10px;
+            border: 1px solid #000;
+        }
+
+        thead th {
+            background-color: #b4c6e7;
+            color: #000;
+            font-weight: bold;
+            text-align: center;
+            vertical-align: middle;
+            border: 1px solid #000;
+            padding: 10px 5px;
+            text-transform: uppercase;
+        }
+
+        tbody td {
+            border: 1px solid #000;
+            padding: 8px;
+            vertical-align: middle; 
+            color: #000;
+        }
+
+        /* --- ROW COLORS --- */
+        tr.row-frozen td { background-color: #fff59d !important; } 
+        tr.row-bajah td { background-color: #f3e5f5 !important; } 
+        tr.row-bajah-icc td { background-color: #e3f2fd !important; } 
+        tr.row-rose-msct td { background-color: #fff3e0 !important; } 
+        tr.row-rose-bronk td { background-color: #e8f5e9 !important; } 
+        tr.row-rose-ginjal td { background-color: #f5f5f5 !important; } 
+        tr.row-rose-anak td { background-color: #e0f7fa !important; } 
+        tr.row-rose-tht td { background-color: #fbe9e7 !important; } 
+
+        /* --- BADGE STYLING (TINDAKAN) --- */
+        .tag {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+            margin-bottom: 4px;
+            border: 1px solid rgba(0,0,0,0.1);
+        }
+        
+        .tag-frozen { background-color: #fdd835; color: #3e2723; border-color: #fbc02d; }
+        .tag-bajah { background-color: #e1bee7; color: #4a148c; border-color: #ba68c8; }
+        .tag-bajah-icc { background-color: #bbdefb; color: #0d47a1; border-color: #64b5f6; }
+        .tag-rose-msct { background-color: #ffe0b2; color: #e65100; border-color: #ffb74d; } 
+        .tag-rose-bronk { background-color: #c8e6c9; color: #1b5e20; border-color: #81c784; } 
+        .tag-rose-ginjal { background-color: #e0e0e0; color: #424242; border-color: #bdbdbd; } 
+        .tag-rose-anak { background-color: #b2ebf2; color: #006064; border-color: #4dd0e1; } 
+        .tag-rose-tht { background-color: #ffccbc; color: #bf360c; border-color: #ff8a65; } 
+
+        /* --- REFINED KONSULEN STYLE --- */
+        .konsulen-container {
+            display: flex;
+            align-items: center;
+            gap: 8px; /* Small space between badge and name */
+            justify-content: flex-start;
+        }
+
+        .konsulen-badge {
+            background-color: #2c3e50;
+            color: white;
+            padding: 2px 6px; /* Very slim padding */
+            border-radius: 4px; /* Rounded Rect like V9 */
+            font-size: 11px; /* Small font */
+            font-weight: 400; /* No Bold */
+            min-width: 40px; /* Consistent width */
+            text-align: center;
+            border: 1px solid #34495e;
+            white-space: nowrap;
+        }
+
+        .konsulen-name {
+            font-size: 12px; /* Small readable font */
+            color: #333;
+            line-height: 1.2;
+            text-align: left;
+        }
+
+        .text-center { text-align: center; }
+        .font-bold { font-weight: bold; }
+        
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Form Input Jadwal Tindakan (PA)</h2>
+    
+    <form id="tindakanForm">
+        <div class="form-grid">
+            
+            <!-- ROW 1 -->
+            <div class="form-group col-2">
+                <label for="nama">Nama Pasien</label>
+                <input type="text" id="nama" required placeholder="Nama Lengkap">
+            </div>
+
+            <div class="form-group col-1">
+                <label for="usia">Usia</label>
+                <input type="number" id="usia" placeholder="Tahun" required>
+            </div>
+
+            <div class="form-group col-1">
+                <label for="norm">Nomor RM</label>
+                <input type="text" id="norm" required placeholder="00-00-00">
+            </div>
+
+            <!-- ROW 2 -->
+            <div class="form-group col-2">
+                <label for="diagnosis">Diagnosis</label>
+                <input type="text" id="diagnosis" required placeholder="Diagnosis Klinis">
+            </div>
+
+            <div class="form-group col-1">
+                <label for="tindakan">Jenis Tindakan</label>
+                <select id="tindakan" required>
+                    <option value="" disabled selected>-- Pilih --</option>
+                    <option value="Frozen">Frozen</option>
+                    <option value="BAJAH">BAJAH</option>
+                    <option value="ROSE">ROSE</option>
+                </select>
+            </div>
+
+            <!-- ROSE Sub-dropdown -->
+            <div class="form-group col-1" id="roseSubGroup" style="display:none;">
+                <label for="roseSub">Detail ROSE</label>
+                <select id="roseSub">
+                    <option value="" disabled selected>-- Pilih ROSE --</option>
+                    <option value="MSCT Scan">MSCT Scan</option>
+                    <option value="Bronkoskopi">Bronkoskopi</option>
+                    <option value="Biopsi Ginjal">Biopsi Ginjal</option>
+                    <option value="Biopsi Bedah Anak">Biopsi Bedah Anak</option>
+                    <option value="Biopsi THT">Biopsi THT</option>
+                </select>
+            </div>
+
+            <div class="form-group col-1" id="regioGroup">
+                <label for="regio">Regio (Opsional)</label>
+                <input type="text" id="regio" placeholder="Contoh: Mammae">
+            </div>
+
+            <!-- ROW 3 -->
+            <div class="form-group col-2">
+                <label for="konsulen">Dokter Konsulen (DPJP)</label>
+                <select id="konsulen" required>
+                    <option value="" disabled selected>-- Pilih Dokter --</option>
+                    <option value="dr. Paranita Ferronika, Ph.D, Sp.PA (K)">dr. Paranita Ferronika, Ph.D, Sp.PA (K)</option>
+                    <option value="dr. Hanggoro Tri Rinonce, Ph.D, Sp.PA (K)">dr. Hanggoro Tri Rinonce, Ph.D, Sp.PA (K)</option>
+                    <option value="dr. Didik Setyo Heriyanto, Ph.D, Sp.PA (K)">dr. Didik Setyo Heriyanto, Ph.D, Sp.PA (K)</option>
+                    <option value="dr. Ery Kus Dwianingsih, Ph.D, Sp.PA (K)">dr. Ery Kus Dwianingsih, Ph.D, Sp.PA (K)</option>
+                    <option value="dr. Dewiyani Indah Widasari, Ph.D, Sp.PA (K)">dr. Dewiyani Indah Widasari, Ph.D, Sp.PA (K)</option>
+                    <option value="Dr. dr. Indrawati, Sp.PA (K)">Dr. dr. Indrawati, Sp.PA (K)</option>
+                    <option value="Prof. Dr. dr. Irianiwati, Sp.PA (K)">Prof. Dr. dr. Irianiwati, Sp.PA (K)</option>
+                    <option value="dr. Setiyani Puji Lestari, Sp.PA">dr. Setiyani Puji Lestari, Sp.PA</option>
+                    <option value="dr. Naomi Yoshuantari, Sp.PA (K)">dr. Naomi Yoshuantari, Sp.PA (K)</option>
+                    <option value="dr. Auliya Suluk Brilliant Sumpono, Sp.PA (K)">dr. Auliya Suluk Brilliant Sumpono, Sp.PA (K)</option>
+                    <option value="dr. Faizah Dwi Tirtasari, Sp.PA">dr. Faizah Dwi Tirtasari, Sp.PA</option>
+                    <option value="Dr. dr. Rita Cempaka, Sp.PA (K)">Dr. dr. Rita Cempaka, Sp.PA (K)</option>
+                </select>
+            </div>
+
+            <div class="form-group col-2">
+                <label for="lokasi">Lokasi Tindakan</label>
+                <select id="lokasi" required>
+                    <option value="" disabled selected>-- Pilih Lokasi --</option>
+                    <option value="GBST">GBST</option>
+                    <option value="OK GBST 4.03">OK GBST 4.03</option>
+                    <option value="OK GBST 4.05">OK GBST 4.05</option>
+                    <option value="Radiologi">Radiologi</option>
+                    <option value="ICC">ICC</option>
+                    <option value="PICU">PICU</option>
+                    <option value="PJT lt.4">PJT lt.4</option>
+                    <option value="Poli THT">Poli THT</option>
+                    <option value="Cendrawasih">Cendrawasih</option>
+                </select>
+            </div>
+
+            <!-- ROW 4 -->
+            <div class="form-group col-1">
+                <label for="senior">Senior</label>
+                <input type="text" id="senior" required>
+            </div>
+
+            <div class="form-group col-1">
+                <label for="asisten">Asisten (Junior)</label>
+                <input type="text" id="asisten" required>
+            </div>
+
+            <div class="form-group col-1">
+                <label for="tanggal">Tanggal Tindakan</label>
+                <input type="date" id="tanggal" required>
+            </div>
+
+            <div class="form-group col-1">
+                <label for="jam">Jam Tindakan</label>
+                <input type="time" id="jam" required>
+            </div>
+
+            <!-- Buttons -->
+            <div class="btn-group">
+                <button type="submit" class="btn-submit" id="btnSubmit">Simpan ke Tabel</button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- RESULT TABLE -->
+<div class="container">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+        <h2 style="margin:0; border:none; padding:0;">Daftar Jadwal</h2>
+        <div class="header-actions">
+            <input type="file" id="importFile" accept=".jadwal,.json" style="display:none" onchange="handleFileImport(this)">
+            
+            <button id="btnImport" class="btn-io btn-import" onclick="document.getElementById('importFile').click()">
+                📂 Import
+            </button>
+            <button id="btnExport" class="btn-io btn-export" onclick="exportData()">
+                💾 Export
+            </button>
+            <button id="btnJpg" class="btn-io btn-jpg" onclick="exportToJPG()">
+                📷 Export JPG
+            </button>
+        </div>
+    </div>
+
+    <div class="table-wrapper" id="tableToCapture">
+        <table id="resultTable">
+            <thead>
+                <tr>
+                    <th rowspan="2" style="width:4%">NO</th>
+                    <th rowspan="2" style="width:20%">NAMA, USIA, RM</th>
+                    <th rowspan="2" style="width:16%">DIAGNOSIS</th>
+                    <th rowspan="2" style="width:12%">TINDAKAN</th>
+                    <th rowspan="2" style="width:15%">KONSULEN</th> <!-- Adjusted Width -->
+                    <th colspan="2" style="width:12%">RESIDEN</th>
+                    <th rowspan="2" style="width:8%">LOKASI</th>
+                    <th rowspan="2" style="width:7%">JAM TINDAKAN</th>
+                    <th rowspan="2" style="width:6%" id="th-aksi">AKSI</th> 
+                </tr>
+                <tr>
+                    <th>SENIOR</th>
+                    <th>JUNIOR</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Rows will be added here via JavaScript -->
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    // 1. Storage
+    let jadwalList = [];
+
+    // --- MAPPING INITIALS (With dr.) ---
+    const initialsMap = {
+        "dr. Paranita Ferronika, Ph.D, Sp.PA (K)": "dr. FE",
+        "dr. Hanggoro Tri Rinonce, Ph.D, Sp.PA (K)": "dr. HT",
+        "dr. Didik Setyo Heriyanto, Ph.D, Sp.PA (K)": "dr. DK",
+        "dr. Ery Kus Dwianingsih, Ph.D, Sp.PA (K)": "dr. ER",
+        "dr. Dewiyani Indah Widasari, Ph.D, Sp.PA (K)": "dr. DW",
+        "Dr. dr. Indrawati, Sp.PA (K)": "dr. IN",
+        "Prof. Dr. dr. Irianiwati, Sp.PA (K)": "dr. IR",
+        "dr. Setiyani Puji Lestari, Sp.PA": "dr. SY",
+        "dr. Naomi Yoshuantari, Sp.PA (K)": "dr. NY",
+        "dr. Auliya Suluk Brilliant Sumpono, Sp.PA (K)": "dr. AU",
+        "dr. Faizah Dwi Tirtasari, Sp.PA": "dr. UW",
+        "Dr. dr. Rita Cempaka, Sp.PA (K)": "dr. RT"
+    };
+
+    // 2. Logic to Show/Hide ROSE Sub-dropdown
+    const tindakanSelect = document.getElementById('tindakan');
+    const roseSubGroup = document.getElementById('roseSubGroup');
+    const roseSubSelect = document.getElementById('roseSub');
+
+    tindakanSelect.addEventListener('change', function() {
+        if (this.value === 'ROSE') {
+            roseSubGroup.style.display = 'flex';
+            roseSubSelect.required = true;
+        } else {
+            roseSubGroup.style.display = 'none';
+            roseSubSelect.required = false;
+            roseSubSelect.value = ""; 
+        }
+    });
+
+    // 3. Submit Handler
+    document.getElementById('tindakanForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        const rawData = {
+            id: Date.now(),
+            nama: document.getElementById('nama').value,
+            usia: document.getElementById('usia').value,
+            norm: document.getElementById('norm').value,
+            diagnosis: document.getElementById('diagnosis').value,
+            tindakan: document.getElementById('tindakan').value,
+            rose_detail: document.getElementById('roseSub').value,
+            regio: document.getElementById('regio').value,
+            konsulen: document.getElementById('konsulen').value,
+            lokasi: document.getElementById('lokasi').value,
+            senior: document.getElementById('senior').value,
+            asisten: document.getElementById('asisten').value,
+            tanggal: document.getElementById('tanggal').value,
+            jam: document.getElementById('jam').value
+        };
+
+        jadwalList.push(rawData);
+        renderTable();
+
+        const lastDate = document.getElementById('tanggal').value;
+        document.getElementById('tindakanForm').reset();
+        document.getElementById('tanggal').value = lastDate;
+        
+        roseSubGroup.style.display = 'none';
+        roseSubSelect.required = false;
+    });
+
+    // 4. Render Table
+    function renderTable() {
+        const tableBody = document.getElementById('resultTable').getElementsByTagName('tbody')[0];
+        tableBody.innerHTML = ""; 
+
+        function getCategory(entry) {
+            if (entry.tindakan === 'BAJAH' && entry.lokasi === 'ICC') return 'BAJAH ICC';
+            return entry.tindakan; 
+        }
+
+        const priorityOrder = {
+            "Frozen": 1,
+            "BAJAH": 2,      
+            "BAJAH ICC": 3,  
+            "ROSE": 4 
+        };
+
+        const sortedList = [...jadwalList].sort((a, b) => {
+            const catA = getCategory(a);
+            const catB = getCategory(b);
+
+            const prioA = priorityOrder[catA] || 99;
+            const prioB = priorityOrder[catB] || 99;
+
+            if (prioA !== prioB) return prioA - prioB;
+
+            const dateTimeA = `${a.tanggal}T${a.jam}`;
+            const dateTimeB = `${b.tanggal}T${b.jam}`;
+            
+            if (dateTimeA < dateTimeB) return -1;
+            if (dateTimeA > dateTimeB) return 1;
+            return 0;
+        });
+
+        sortedList.forEach((entry, index) => {
+            const rowNumber = index + 1;
+            const regioText = entry.regio ? `<br><span style="font-size:0.85em; color:#555;">(${entry.regio})</span>` : '';
+            
+            // Get Initial
+            const initial = initialsMap[entry.konsulen] || "dr. ?";
+
+            let displayTindakan = entry.tindakan;
+            let rowClass = 'row-default';
+            let badgeClass = 'tag';
+
+            if (entry.tindakan === 'Frozen') {
+                rowClass = 'row-frozen'; 
+                badgeClass += ' tag-frozen';
+            } 
+            else if (entry.tindakan === 'BAJAH') {
+                if (entry.lokasi === 'ICC') {
+                    rowClass = 'row-bajah-icc';
+                    displayTindakan = 'BAJAH ICC';
+                    badgeClass += ' tag-bajah-icc';
+                } else {
+                    rowClass = 'row-bajah';
+                    badgeClass += ' tag-bajah';
+                }
+            } 
+            else if (entry.tindakan === 'ROSE') {
+                const detail = entry.rose_detail || "Lainnya";
+                displayTindakan = `ROSE | ${detail}`;
+
+                if (detail === 'MSCT Scan') {
+                    rowClass = 'row-rose-msct'; 
+                    badgeClass += ' tag-rose-msct';
+                } else if (detail === 'Bronkoskopi') {
+                    rowClass = 'row-rose-bronk'; 
+                    badgeClass += ' tag-rose-bronk';
+                } else if (detail === 'Biopsi Ginjal') {
+                    rowClass = 'row-rose-ginjal'; 
+                    badgeClass += ' tag-rose-ginjal';
+                } else if (detail === 'Biopsi Bedah Anak') {
+                    rowClass = 'row-rose-anak'; 
+                    badgeClass += ' tag-rose-anak';
+                } else if (detail === 'Biopsi THT') {
+                    rowClass = 'row-rose-tht'; 
+                    badgeClass += ' tag-rose-tht';
+                } else {
+                    rowClass = 'row-rose-bronk'; 
+                    badgeClass += ' tag-rose-bronk';
+                }
+            }
+
+            const newRow = tableBody.insertRow();
+            newRow.className = rowClass;
+
+            newRow.innerHTML = `
+                <td class="text-center">${rowNumber}</td>
+                <td>
+                    <strong>${entry.nama}</strong><br>
+                    ${entry.usia} Th, RM: ${entry.norm}
+                </td>
+                <td>${entry.diagnosis}</td>
+                <td class="text-center">
+                    <span class="${badgeClass}">${displayTindakan}</span>${regioText}
+                </td>
+                
+                <!-- REFINED KONSULEN LAYOUT -->
+                <td>
+                    <div class="konsulen-container">
+                        <span class="konsulen-badge">${initial}</span>
+                        <span class="konsulen-name">${entry.konsulen}</span>
+                    </div>
+                </td>
+                
+                <td class="text-center">${entry.senior}</td>
+                <td class="text-center">${entry.asisten}</td>
+                <td class="text-center font-bold">${entry.lokasi}</td>
+                <td class="text-center">${entry.jam}</td>
+                <td class="text-center td-aksi"> 
+                    <button class="btn-action btn-edit" onclick="editRow(${entry.id})">Edit</button>
+                    <button class="btn-action btn-delete" onclick="deleteRow(${entry.id})">Hapus</button>
+                </td>
+            `;
+        });
+    }
+
+    // 5. Delete
+    function deleteRow(id) {
+        if(confirm('Hapus data ini?')) {
+            jadwalList = jadwalList.filter(item => item.id !== id);
+            renderTable();
+        }
+    }
+
+    // 6. Edit
+    function editRow(id) {
+        const item = jadwalList.find(i => i.id === id);
+        if(item) {
+            document.getElementById('nama').value = item.nama;
+            document.getElementById('usia').value = item.usia;
+            document.getElementById('norm').value = item.norm;
+            document.getElementById('diagnosis').value = item.diagnosis;
+            
+            document.getElementById('tindakan').value = item.tindakan;
+            if(item.tindakan === 'ROSE') {
+                roseSubGroup.style.display = 'flex';
+                roseSubSelect.required = true;
+                roseSubSelect.value = item.rose_detail || "";
+            } else {
+                roseSubGroup.style.display = 'none';
+                roseSubSelect.required = false;
+            }
+
+            document.getElementById('regio').value = item.regio;
+            document.getElementById('konsulen').value = item.konsulen;
+            document.getElementById('lokasi').value = item.lokasi;
+            document.getElementById('senior').value = item.senior;
+            document.getElementById('asisten').value = item.asisten;
+            document.getElementById('tanggal').value = item.tanggal;
+            document.getElementById('jam').value = item.jam;
+
+            jadwalList = jadwalList.filter(i => i.id !== id);
+            renderTable();
+            document.querySelector('.container').scrollIntoView({behavior: 'smooth'});
+        }
+    }
+
+    // 7. Export .jadwal
+    function exportData() {
+        if(jadwalList.length === 0) {
+            alert("Belum ada data untuk diexport!");
+            return;
+        }
+        const jsonString = JSON.stringify(jadwalList, null, 2);
+        const blob = new Blob([jsonString], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const today = new Date().toISOString().slice(0, 10);
+        a.href = url;
+        a.download = `jadwal_tindakan_${today}.jadwal`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    // 8. Import
+    function handleFileImport(input) {
+        const file = input.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const importedRaw = JSON.parse(e.target.result);
+                if (Array.isArray(importedRaw)) {
+                    const mappedData = importedRaw.map(item => {
+                        let tgl = item.tanggal || item.Tanggal;
+                        let jam = item.jam || item.Jam;
+                        if (!tgl && (item.waktu || item.Waktu_Pelaksanaan)) {
+                            const combined = item.waktu || item.Waktu_Pelaksanaan;
+                            if(combined.includes('T')) {
+                                const parts = combined.split('T');
+                                tgl = parts[0];
+                                jam = parts[1];
+                            }
+                        }
+                        return {
+                            id: item.id || (Date.now() + Math.random()), 
+                            nama: item.nama || item.Nama,
+                            usia: item.usia || item.Usia,
+                            norm: item.norm || item.RM,
+                            diagnosis: item.diagnosis || item.Diagnosis,
+                            tindakan: item.tindakan || item.Tindakan,
+                            rose_detail: item.rose_detail || "", 
+                            regio: item.regio || item.Regio || "",
+                            konsulen: item.konsulen || item.Konsulen,
+                            lokasi: item.lokasi || item.Lokasi,
+                            senior: item.senior || item.Senior,
+                            asisten: item.asisten || item.Junior,
+                            tanggal: tgl,
+                            jam: jam
+                        };
+                    });
+                    jadwalList = mappedData;
+                    renderTable();
+                    alert("Berhasil mengimport data.");
+                } else {
+                    alert("Format file tidak valid.");
+                }
+            } catch (error) {
+                alert("Gagal membaca file.");
+                console.error(error);
+            }
+        };
+        reader.readAsText(file);
+        input.value = '';
+    }
+
+    // 9. EXPORT TO JPG
+    function exportToJPG() {
+        if(jadwalList.length === 0) {
+            alert("Tidak ada data untuk diexport!");
+            return;
+        }
+        const aksiHeader = document.getElementById('th-aksi');
+        const aksiCells = document.querySelectorAll('.td-aksi');
+        
+        if(aksiHeader) aksiHeader.style.display = 'none';
+        aksiCells.forEach(td => td.style.display = 'none');
+
+        html2canvas(document.querySelector('#tableToCapture'), {
+            scale: 3, 
+            backgroundColor: "#ffffff",
+            useCORS: true
+        }).then(canvas => {
+            if(aksiHeader) aksiHeader.style.display = '';
+            aksiCells.forEach(td => td.style.display = '');
+
+            const link = document.createElement('a');
+            const today = new Date().toISOString().slice(0, 10);
+            link.download = `Jadwal_Tindakan_${today}.jpg`;
+            link.href = canvas.toDataURL("image/jpeg", 0.9); 
+            link.click();
+        }).catch(err => {
+            console.error(err);
+            alert("Gagal mengexport gambar.");
+            if(aksiHeader) aksiHeader.style.display = '';
+            aksiCells.forEach(td => td.style.display = '');
+        });
+    }
+</script>
+
+</body>
+</html>
