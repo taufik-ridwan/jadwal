@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jadwal Tindakan - Final V10 (Refined)</title>
+    <title>Jadwal Tindakan - Final V11 (Mobile Fix)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     
     <style>
@@ -224,25 +224,25 @@
         .konsulen-container {
             display: flex;
             align-items: center;
-            gap: 8px; /* Small space between badge and name */
+            gap: 8px;
             justify-content: flex-start;
         }
 
         .konsulen-badge {
             background-color: #2c3e50;
             color: white;
-            padding: 2px 6px; /* Very slim padding */
-            border-radius: 4px; /* Rounded Rect like V9 */
-            font-size: 11px; /* Small font */
-            font-weight: 400; /* No Bold */
-            min-width: 40px; /* Consistent width */
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 400;
+            min-width: 40px;
             text-align: center;
             border: 1px solid #34495e;
             white-space: nowrap;
         }
 
         .konsulen-name {
-            font-size: 12px; /* Small readable font */
+            font-size: 12px;
             color: #333;
             line-height: 1.2;
             text-align: left;
@@ -726,30 +726,51 @@
             alert("Tidak ada data untuk diexport!");
             return;
         }
+        
+        const tableWrapper = document.getElementById('tableToCapture');
         const aksiHeader = document.getElementById('th-aksi');
         const aksiCells = document.querySelectorAll('.td-aksi');
         
         if(aksiHeader) aksiHeader.style.display = 'none';
         aksiCells.forEach(td => td.style.display = 'none');
 
-        html2canvas(document.querySelector('#tableToCapture'), {
-            scale: 3, 
+        // FIX FOR MOBILE SCROLL
+        const originalOverflow = tableWrapper.style.overflow;
+        const originalWidth = tableWrapper.style.width;
+        tableWrapper.style.overflow = 'visible';
+        tableWrapper.style.width = 'fit-content';
+
+        html2canvas(tableWrapper, {
+            scale: 2, // 2x Scale for Mobile Safety
             backgroundColor: "#ffffff",
-            useCORS: true
+            useCORS: true,
+            windowWidth: tableWrapper.scrollWidth,
+            windowHeight: tableWrapper.scrollHeight
         }).then(canvas => {
             if(aksiHeader) aksiHeader.style.display = '';
             aksiCells.forEach(td => td.style.display = '');
+            tableWrapper.style.overflow = originalOverflow;
+            tableWrapper.style.width = originalWidth;
 
-            const link = document.createElement('a');
-            const today = new Date().toISOString().slice(0, 10);
-            link.download = `Jadwal_Tindakan_${today}.jpg`;
-            link.href = canvas.toDataURL("image/jpeg", 0.9); 
-            link.click();
+            canvas.toBlob(function(blob) {
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                const today = new Date().toISOString().slice(0, 10);
+                link.download = `Jadwal_Tindakan_${today}.jpg`;
+                link.href = url;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            }, 'image/jpeg', 0.9);
+
         }).catch(err => {
             console.error(err);
-            alert("Gagal mengexport gambar.");
+            alert("Gagal mengexport gambar: " + err.message);
             if(aksiHeader) aksiHeader.style.display = '';
             aksiCells.forEach(td => td.style.display = '');
+            tableWrapper.style.overflow = originalOverflow;
+            tableWrapper.style.width = originalWidth;
         });
     }
 </script>
