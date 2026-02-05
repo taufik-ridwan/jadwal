@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jadwal Tindakan - Final V15 (Stable Fix)</title>
+    <title>Jadwal Tindakan - Final V16 (Sub-Grouping)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     
     <style>
@@ -309,7 +309,6 @@
                     <option value="" disabled selected>-- Pilih ROSE --</option>
                     <option value="MSCT Scan">MSCT Scan</option>
                     <option value="Bronkoskopi">Bronkoskopi</option>
-                    <!-- UPDATED VALUE to BAJAH for internal consistency -->
                     <option value="BAJAH">Pendampingan BAJAH</option> 
                     <option value="Biopsi Ginjal">Biopsi Ginjal</option>
                     <option value="Biopsi Bedah Anak">Biopsi Bedah Anak</option>
@@ -501,21 +500,37 @@
         roseSubSelect.required = false;
     });
 
-    // 4. Render Table
+    // 4. Render Table with SUB-GROUPING LOGIC
     function renderTable() {
         const tableBody = document.getElementById('resultTable').getElementsByTagName('tbody')[0];
         tableBody.innerHTML = ""; 
 
+        // Helper to get Category for Sorting
         function getCategory(entry) {
-            if (entry.tindakan === 'BAJAH' && entry.lokasi === 'ICC') return 'BAJAH ICC';
-            return entry.tindakan; 
+            if (entry.tindakan === 'BAJAH') {
+                if (entry.lokasi === 'ICC') return 'BAJAH ICC';
+                return 'BAJAH';
+            }
+            if (entry.tindakan === 'ROSE') {
+                let detail = entry.rose_detail;
+                // Normalize "Pendampingan" to same category
+                if (detail === 'BAJAH' || detail === 'Pendampingan BAJAH') return 'ROSE pendampingan BAJAH';
+                return 'ROSE | ' + detail;
+            }
+            return entry.tindakan; // Frozen
         }
 
+        // Updated Priority Order with Sub-groups
         const priorityOrder = {
             "Frozen": 1,
-            "BAJAH": 2,      
-            "BAJAH ICC": 3,  
-            "ROSE": 4 
+            "BAJAH": 2,
+            "BAJAH ICC": 3,
+            "ROSE pendampingan BAJAH": 4,
+            "ROSE | MSCT Scan": 5,
+            "ROSE | Bronkoskopi": 6,
+            "ROSE | Biopsi Ginjal": 7,
+            "ROSE | Biopsi Bedah Anak": 8,
+            "ROSE | Biopsi THT": 9
         };
 
         const sortedList = [...jadwalList].sort((a, b) => {
@@ -579,10 +594,10 @@
                 } else if (detail === 'Biopsi THT') {
                     rowClass = 'row-rose-tht'; 
                     badgeClass += ' tag-rose-tht';
-                } else if (detail === 'BAJAH' || detail === 'Pendampingan BAJAH') { // Catch both for backward compatibility
+                } else if (detail === 'BAJAH' || detail === 'Pendampingan BAJAH') { 
                     rowClass = 'row-rose-pendampingan'; 
                     badgeClass += ' tag-rose-pendampingan';
-                    displayTindakan = 'ROSE pendampingan BAJAH'; // Enforce this text
+                    displayTindakan = 'ROSE pendampingan BAJAH'; // Enforce Display
                 } else {
                     rowClass = 'row-rose-bronk'; 
                     badgeClass += ' tag-rose-bronk';
@@ -644,7 +659,6 @@
                 roseSubGroup.style.display = 'flex';
                 roseSubSelect.required = true;
                 
-                // If it's the specific "BAJAH" detail, set the dropdown properly
                 if (item.rose_detail === 'BAJAH' || item.rose_detail === 'Pendampingan BAJAH') {
                     roseSubSelect.value = 'BAJAH';
                 } else {
@@ -688,7 +702,7 @@
         URL.revokeObjectURL(url);
     }
 
-    // 8. Import (With Fix for Old "Pendampingan" text)
+    // 8. Import
     function handleFileImport(input) {
         const file = input.files[0];
         if (!file) return;
@@ -702,7 +716,6 @@
                         let tgl = item.tanggal || item.Tanggal;
                         let jam = item.jam || item.Jam;
                         
-                        // FIX: Detect old Pendampingan text and convert to BAJAH
                         let roseDetail = item.rose_detail || "";
                         if (roseDetail === "Pendampingan BAJAH") {
                             roseDetail = "BAJAH";
@@ -762,7 +775,6 @@
         if(aksiHeader) aksiHeader.style.display = 'none';
         aksiCells.forEach(td => td.style.display = 'none');
 
-        // FIX FOR MOBILE SCROLL
         const originalOverflow = tableWrapper.style.overflow;
         const originalWidth = tableWrapper.style.width;
         tableWrapper.style.overflow = 'visible';
