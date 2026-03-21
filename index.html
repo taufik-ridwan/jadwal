@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jadwal Tindakan - Final V16 (Sub-Grouping)</title>
+    <title>Jadwal Tindakan - Final V19 (Hepar Pink Theme)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     
     <style>
@@ -105,19 +105,35 @@
             font-weight: bold;
             border-radius: 4px;
             cursor: pointer;
-            flex: 1;
+            flex: 2;
             transition: background 0.2s;
         }
         .btn-submit:hover { background-color: #2980b9; }
 
+        .btn-cancel {
+            background-color: #95a5a6;
+            color: white;
+            border: none;
+            padding: 14px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 4px;
+            cursor: pointer;
+            flex: 1;
+            transition: background 0.2s;
+            display: none; 
+        }
+        .btn-cancel:hover { background-color: #7f8c8d; }
+
         .header-actions {
             display: flex;
             gap: 10px;
+            flex-wrap: wrap; 
         }
 
         .btn-io {
             border: none;
-            padding: 10px 20px;
+            padding: 10px 16px;
             font-size: 14px;
             font-weight: bold;
             border-radius: 4px;
@@ -136,6 +152,10 @@
 
         .btn-jpg { background-color: #8e44ad; color: white; }
         .btn-jpg:hover { background-color: #7d3c98; }
+
+        /* Reset Button Style */
+        .btn-reset { background-color: #e74c3c; color: white; margin-right: 15px;}
+        .btn-reset:hover { background-color: #c0392b; }
 
         .btn-action {
             padding: 6px 0;
@@ -201,9 +221,10 @@
         tr.row-rose-ginjal td { background-color: #f5f5f5 !important; } 
         tr.row-rose-anak td { background-color: #e0f7fa !important; } 
         tr.row-rose-tht td { background-color: #fbe9e7 !important; } 
-        
-        /* ROSE Pendampingan BAJAH (Brown-ish) */
         tr.row-rose-pendampingan td { background-color: #efebe9 !important; } 
+        
+        /* NEW: ROSE Biopsi Hepar (Soft Pink/Magenta - non-blue) */
+        tr.row-rose-hepar td { background-color: #fce4ec !important; }
 
         /* --- BADGE STYLING (TINDAKAN) --- */
         .tag {
@@ -225,9 +246,10 @@
         .tag-rose-ginjal { background-color: #e0e0e0; color: #424242; border-color: #bdbdbd; } 
         .tag-rose-anak { background-color: #b2ebf2; color: #006064; border-color: #4dd0e1; } 
         .tag-rose-tht { background-color: #ffccbc; color: #bf360c; border-color: #ff8a65; } 
-        
-        /* ROSE Pendampingan Badge (Brown-ish) */
         .tag-rose-pendampingan { background-color: #d7ccc8; color: #4e342e; border-color: #a1887f; }
+
+        /* NEW: ROSE Biopsi Hepar Badge (Pink) */
+        .tag-rose-hepar { background-color: #f8bbd0; color: #880e4f; border-color: #f48fb1; }
 
         /* --- REFINED KONSULEN STYLE --- */
         .konsulen-container {
@@ -311,6 +333,7 @@
                     <option value="Bronkoskopi">Bronkoskopi</option>
                     <option value="BAJAH">Pendampingan BAJAH</option> 
                     <option value="Biopsi Ginjal">Biopsi Ginjal</option>
+                    <option value="Biopsi Hepar">Biopsi Hepar</option> 
                     <option value="Biopsi Bedah Anak">Biopsi Bedah Anak</option>
                     <option value="Biopsi THT">Biopsi THT</option>
                 </select>
@@ -382,6 +405,7 @@
             <!-- Buttons -->
             <div class="btn-group">
                 <button type="submit" class="btn-submit" id="btnSubmit">Simpan ke Tabel</button>
+                <button type="button" class="btn-cancel" id="btnCancelEdit" onclick="cancelEdit()">Batal Edit</button>
             </div>
         </div>
     </form>
@@ -389,9 +413,15 @@
 
 <!-- RESULT TABLE -->
 <div class="container">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; flex-wrap:wrap; gap:10px;">
         <h2 style="margin:0; border:none; padding:0;">Daftar Jadwal</h2>
+        
         <div class="header-actions">
+            <!-- RESET BUTTON -->
+            <button id="btnReset" class="btn-io btn-reset" onclick="resetData()">
+                🗑️ Reset Tabel
+            </button>
+
             <input type="file" id="importFile" accept=".jadwal,.json" style="display:none" onchange="handleFileImport(this)">
             
             <button id="btnImport" class="btn-io btn-import" onclick="document.getElementById('importFile').click()">
@@ -433,8 +463,10 @@
 </div>
 
 <script>
-    // 1. Storage
-    let jadwalList = [];
+    // 1. Storage & State Setup
+    let jadwalList =[];
+    let currentEditId = null; 
+    const STORAGE_KEY = "jadwalTindakanPAData";
 
     // --- MAPPING INITIALS (With dr.) ---
     const initialsMap = {
@@ -452,6 +484,24 @@
         "Dr. dr. Rita Cempaka, Sp.PA (K)": "dr. RT"
     };
 
+    // Load data from Local Storage on Page Load
+    window.onload = function() {
+        const storedData = localStorage.getItem(STORAGE_KEY);
+        if (storedData) {
+            try {
+                jadwalList = JSON.parse(storedData);
+                renderTable();
+            } catch (e) {
+                console.error("Gagal memuat data dari memory browser.", e);
+            }
+        }
+    };
+
+    // Helper to save to local storage
+    function saveToLocalStorage() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(jadwalList));
+    }
+
     // 2. Logic to Show/Hide ROSE Sub-dropdown
     const tindakanSelect = document.getElementById('tindakan');
     const roseSubGroup = document.getElementById('roseSubGroup');
@@ -468,12 +518,17 @@
         }
     });
 
+    // Generate unbreakable unique ID
+    function generateId() {
+        return Date.now().toString(36) + Math.random().toString(36).substring(2);
+    }
+
     // 3. Submit Handler
     document.getElementById('tindakanForm').addEventListener('submit', function(e) {
         e.preventDefault();
 
         const rawData = {
-            id: Date.now(),
+            id: currentEditId ? currentEditId : generateId(), 
             nama: document.getElementById('nama').value,
             usia: document.getElementById('usia').value,
             norm: document.getElementById('norm').value,
@@ -489,9 +544,21 @@
             jam: document.getElementById('jam').value
         };
 
-        jadwalList.push(rawData);
-        renderTable();
+        if (currentEditId) {
+            const index = jadwalList.findIndex(i => i.id === currentEditId);
+            if (index !== -1) jadwalList[index] = rawData;
+            
+            currentEditId = null;
+            document.getElementById('btnSubmit').innerHTML = "Simpan ke Tabel";
+            document.getElementById('btnCancelEdit').style.display = "none";
+        } else {
+            jadwalList.push(rawData);
+        }
 
+        renderTable();
+        saveToLocalStorage(); // SAVE AFTER ADD/EDIT
+
+        // Clear form but keep sticky date
         const lastDate = document.getElementById('tanggal').value;
         document.getElementById('tindakanForm').reset();
         document.getElementById('tanggal').value = lastDate;
@@ -500,12 +567,11 @@
         roseSubSelect.required = false;
     });
 
-    // 4. Render Table with SUB-GROUPING LOGIC
+    // 4. Render Table
     function renderTable() {
         const tableBody = document.getElementById('resultTable').getElementsByTagName('tbody')[0];
         tableBody.innerHTML = ""; 
 
-        // Helper to get Category for Sorting
         function getCategory(entry) {
             if (entry.tindakan === 'BAJAH') {
                 if (entry.lokasi === 'ICC') return 'BAJAH ICC';
@@ -513,14 +579,12 @@
             }
             if (entry.tindakan === 'ROSE') {
                 let detail = entry.rose_detail;
-                // Normalize "Pendampingan" to same category
                 if (detail === 'BAJAH' || detail === 'Pendampingan BAJAH') return 'ROSE pendampingan BAJAH';
                 return 'ROSE | ' + detail;
             }
             return entry.tindakan; // Frozen
         }
 
-        // Updated Priority Order with Sub-groups
         const priorityOrder = {
             "Frozen": 1,
             "BAJAH": 2,
@@ -529,11 +593,12 @@
             "ROSE | MSCT Scan": 5,
             "ROSE | Bronkoskopi": 6,
             "ROSE | Biopsi Ginjal": 7,
-            "ROSE | Biopsi Bedah Anak": 8,
-            "ROSE | Biopsi THT": 9
+            "ROSE | Biopsi Hepar": 8, 
+            "ROSE | Biopsi Bedah Anak": 9,
+            "ROSE | Biopsi THT": 10
         };
 
-        const sortedList = [...jadwalList].sort((a, b) => {
+        const sortedList =[...jadwalList].sort((a, b) => {
             const catA = getCategory(a);
             const catB = getCategory(b);
 
@@ -554,7 +619,6 @@
             const rowNumber = index + 1;
             const regioText = entry.regio ? `<br><span style="font-size:0.85em; color:#555;">(${entry.regio})</span>` : '';
             
-            // Get Initial
             const initial = initialsMap[entry.konsulen] || "dr. ?";
 
             let displayTindakan = entry.tindakan;
@@ -588,6 +652,9 @@
                 } else if (detail === 'Biopsi Ginjal') {
                     rowClass = 'row-rose-ginjal'; 
                     badgeClass += ' tag-rose-ginjal';
+                } else if (detail === 'Biopsi Hepar') {
+                    rowClass = 'row-rose-hepar'; 
+                    badgeClass += ' tag-rose-hepar';
                 } else if (detail === 'Biopsi Bedah Anak') {
                     rowClass = 'row-rose-anak'; 
                     badgeClass += ' tag-rose-anak';
@@ -597,7 +664,7 @@
                 } else if (detail === 'BAJAH' || detail === 'Pendampingan BAJAH') { 
                     rowClass = 'row-rose-pendampingan'; 
                     badgeClass += ' tag-rose-pendampingan';
-                    displayTindakan = 'ROSE pendampingan BAJAH'; // Enforce Display
+                    displayTindakan = 'ROSE pendampingan BAJAH';
                 } else {
                     rowClass = 'row-rose-bronk'; 
                     badgeClass += ' tag-rose-bronk';
@@ -630,8 +697,8 @@
                 <td class="text-center font-bold">${entry.lokasi}</td>
                 <td class="text-center">${entry.jam}</td>
                 <td class="text-center td-aksi"> 
-                    <button class="btn-action btn-edit" onclick="editRow(${entry.id})">Edit</button>
-                    <button class="btn-action btn-delete" onclick="deleteRow(${entry.id})">Hapus</button>
+                    <button class="btn-action btn-edit" onclick="editRow('${entry.id}')">Edit</button>
+                    <button class="btn-action btn-delete" onclick="deleteRow('${entry.id}')">Hapus</button>
                 </td>
             `;
         });
@@ -642,13 +709,17 @@
         if(confirm('Hapus data ini?')) {
             jadwalList = jadwalList.filter(item => item.id !== id);
             renderTable();
+            saveToLocalStorage(); // SAVE AFTER DELETE
         }
     }
 
-    // 6. Edit
+    // 6. Safe Edit 
     function editRow(id) {
         const item = jadwalList.find(i => i.id === id);
         if(item) {
+            currentEditId = id; 
+
+            // Populate Form
             document.getElementById('nama').value = item.nama;
             document.getElementById('usia').value = item.usia;
             document.getElementById('norm').value = item.norm;
@@ -677,13 +748,48 @@
             document.getElementById('tanggal').value = item.tanggal;
             document.getElementById('jam').value = item.jam;
 
-            jadwalList = jadwalList.filter(i => i.id !== id);
-            renderTable();
+            // Change UI to reflect Edit Mode
+            document.getElementById('btnSubmit').innerHTML = "Update Jadwal";
+            document.getElementById('btnCancelEdit').style.display = "block";
+            
             document.querySelector('.container').scrollIntoView({behavior: 'smooth'});
         }
     }
 
-    // 7. Export .jadwal
+    // 6.5 Cancel Edit
+    function cancelEdit() {
+        currentEditId = null;
+        
+        // Reset form but keep sticky date
+        const lastDate = document.getElementById('tanggal').value;
+        document.getElementById('tindakanForm').reset();
+        document.getElementById('tanggal').value = lastDate;
+
+        // Reset Rose Dropdown
+        roseSubGroup.style.display = 'none';
+        roseSubSelect.required = false;
+
+        // Restore Buttons
+        document.getElementById('btnSubmit').innerHTML = "Simpan ke Tabel";
+        document.getElementById('btnCancelEdit').style.display = "none";
+    }
+
+    // 7. Reset Entire Table
+    function resetData() {
+        if(jadwalList.length === 0) {
+            alert("Tabel sudah kosong.");
+            return;
+        }
+
+        if(confirm('Hapus SEMUA data dari tabel ini? Tindakan ini tidak dapat dibatalkan!')) {
+            jadwalList =[];
+            localStorage.removeItem(STORAGE_KEY); // CLEAR LOCAL STORAGE
+            renderTable();
+            cancelEdit(); 
+        }
+    }
+
+    // 8. Export .jadwal
     function exportData() {
         if(jadwalList.length === 0) {
             alert("Belum ada data untuk diexport!");
@@ -702,7 +808,7 @@
         URL.revokeObjectURL(url);
     }
 
-    // 8. Import
+    // 9. Import
     function handleFileImport(input) {
         const file = input.files[0];
         if (!file) return;
@@ -730,7 +836,7 @@
                             }
                         }
                         return {
-                            id: item.id || (Date.now() + Math.random()), 
+                            id: (item.id || generateId()).toString(), 
                             nama: item.nama || item.Nama,
                             usia: item.usia || item.Usia,
                             norm: item.norm || item.RM,
@@ -746,8 +852,19 @@
                             jam: jam
                         };
                     });
-                    jadwalList = mappedData;
+                    
+                    if (jadwalList.length > 0) {
+                        if(confirm('Tambahkan data ini ke tabel yang sudah ada? (Pilih Cancel untuk menghapus tabel saat ini dan menggantinya dengan file baru)')) {
+                            jadwalList = jadwalList.concat(mappedData);
+                        } else {
+                            jadwalList = mappedData;
+                        }
+                    } else {
+                        jadwalList = mappedData;
+                    }
+
                     renderTable();
+                    saveToLocalStorage(); // SAVE AFTER IMPORT
                     alert("Berhasil mengimport data.");
                 } else {
                     alert("Format file tidak valid.");
@@ -761,7 +878,7 @@
         input.value = '';
     }
 
-    // 9. EXPORT TO JPG
+    // 10. EXPORT TO JPG
     function exportToJPG() {
         if(jadwalList.length === 0) {
             alert("Tidak ada data untuk diexport!");
