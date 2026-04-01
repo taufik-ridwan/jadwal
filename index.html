@@ -3,8 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jadwal Tindakan - Final V19 (Hepar Pink Theme)</title>
+    <title>Jadwal Tindakan - Final V20 (Drag & Drop + Lokasi)</title>
+    
+    <!-- HTML2Canvas for JPG Export -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- SortableJS for Drag and Drop -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
     
     <style>
         /* General Page Styling */
@@ -153,8 +157,10 @@
         .btn-jpg { background-color: #8e44ad; color: white; }
         .btn-jpg:hover { background-color: #7d3c98; }
 
-        /* Reset Button Style */
-        .btn-reset { background-color: #e74c3c; color: white; margin-right: 15px;}
+        .btn-sort { background-color: #34495e; color: white; margin-right: 15px;}
+        .btn-sort:hover { background-color: #2c3e50; }
+
+        .btn-reset { background-color: #e74c3c; color: white; }
         .btn-reset:hover { background-color: #c0392b; }
 
         .btn-action {
@@ -215,15 +221,12 @@
         tr.row-bajah td { background-color: #f3e5f5 !important; } 
         tr.row-bajah-icc td { background-color: #e3f2fd !important; } 
         
-        /* ROSE VARIATIONS */
         tr.row-rose-msct td { background-color: #fff3e0 !important; } 
         tr.row-rose-bronk td { background-color: #e8f5e9 !important; } 
         tr.row-rose-ginjal td { background-color: #f5f5f5 !important; } 
         tr.row-rose-anak td { background-color: #e0f7fa !important; } 
         tr.row-rose-tht td { background-color: #fbe9e7 !important; } 
         tr.row-rose-pendampingan td { background-color: #efebe9 !important; } 
-        
-        /* NEW: ROSE Biopsi Hepar (Soft Pink/Magenta - non-blue) */
         tr.row-rose-hepar td { background-color: #fce4ec !important; }
 
         /* --- BADGE STYLING (TINDAKAN) --- */
@@ -247,8 +250,6 @@
         .tag-rose-anak { background-color: #b2ebf2; color: #006064; border-color: #4dd0e1; } 
         .tag-rose-tht { background-color: #ffccbc; color: #bf360c; border-color: #ff8a65; } 
         .tag-rose-pendampingan { background-color: #d7ccc8; color: #4e342e; border-color: #a1887f; }
-
-        /* NEW: ROSE Biopsi Hepar Badge (Pink) */
         .tag-rose-hepar { background-color: #f8bbd0; color: #880e4f; border-color: #f48fb1; }
 
         /* --- REFINED KONSULEN STYLE --- */
@@ -281,6 +282,20 @@
 
         .text-center { text-align: center; }
         .font-bold { font-weight: bold; }
+
+        /* --- DRAG AND DROP HANDLE --- */
+        .drag-handle {
+            cursor: grab;
+            color: #95a5a6;
+            margin-right: 8px;
+            font-size: 16px;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        .drag-handle:active {
+            cursor: grabbing;
+            color: #2c3e50;
+        }
         
     </style>
 </head>
@@ -378,7 +393,10 @@
                     <option value="Poli THT">Poli THT</option>
                     <option value="Dahlia">Dahlia</option> 
                     <option value="Cendrawasih">Cendrawasih</option>
+                    <option value="Lainnya">Lainnya...</option> <!-- Added Lainnya -->
                 </select>
+                <!-- NEW: Input for manual location, hidden by default -->
+                <input type="text" id="lokasiLainnya" placeholder="Ketik lokasi manual" style="display:none; margin-top:8px;">
             </div>
 
             <!-- ROW 4 -->
@@ -417,9 +435,14 @@
         <h2 style="margin:0; border:none; padding:0;">Daftar Jadwal</h2>
         
         <div class="header-actions">
+            <!-- AUTO SORT BUTTON -->
+            <button id="btnAutoSort" class="btn-io btn-sort" onclick="forceAutoSort()" title="Urutkan ulang tabel secara otomatis berdasarkan jenis tindakan">
+                🔄 Urutkan Otomatis
+            </button>
+
             <!-- RESET BUTTON -->
             <button id="btnReset" class="btn-io btn-reset" onclick="resetData()">
-                🔄 Reset Tabel
+                🗑️ Reset
             </button>
 
             <input type="file" id="importFile" accept=".jadwal,.json" style="display:none" onchange="handleFileImport(this)">
@@ -440,7 +463,7 @@
         <table id="resultTable">
             <thead>
                 <tr>
-                    <th rowspan="2" style="width:4%">NO</th>
+                    <th rowspan="2" style="width:5%">NO</th>
                     <th rowspan="2" style="width:20%">NAMA, USIA, RM</th>
                     <th rowspan="2" style="width:16%">DIAGNOSIS</th>
                     <th rowspan="2" style="width:12%">TINDAKAN</th>
@@ -448,14 +471,15 @@
                     <th colspan="2" style="width:12%">RESIDEN</th>
                     <th rowspan="2" style="width:8%">LOKASI</th>
                     <th rowspan="2" style="width:7%">JAM TINDAKAN</th>
-                    <th rowspan="2" style="width:6%" id="th-aksi">AKSI</th> 
+                    <th rowspan="2" style="width:5%" id="th-aksi" class="hide-on-export">AKSI</th> 
                 </tr>
                 <tr>
                     <th>SENIOR</th>
                     <th>JUNIOR</th>
                 </tr>
             </thead>
-            <tbody>
+            <!-- Added ID to tbody for Sortable JS -->
+            <tbody id="tbody-jadwal">
                 <!-- Rows will be added here via JavaScript -->
             </tbody>
         </table>
@@ -466,7 +490,9 @@
     // 1. Storage & State Setup
     let jadwalList =[];
     let currentEditId = null; 
+    let isManualSort = false; // TRACKS IF USER DRAGGED ROWS
     const STORAGE_KEY = "jadwalTindakanPAData";
+    const SORT_STATE_KEY = "jadwalTindakanSortState";
 
     // --- MAPPING INITIALS (With dr.) ---
     const initialsMap = {
@@ -487,22 +513,32 @@
     // Load data from Local Storage on Page Load
     window.onload = function() {
         const storedData = localStorage.getItem(STORAGE_KEY);
+        const storedSortState = localStorage.getItem(SORT_STATE_KEY);
+        
+        if (storedSortState === 'true') {
+            isManualSort = true;
+        }
+
         if (storedData) {
             try {
                 jadwalList = JSON.parse(storedData);
-                renderTable();
+                renderTable(); // Render exact loaded order
             } catch (e) {
                 console.error("Gagal memuat data dari memory browser.", e);
             }
         }
+
+        // Initialize Drag and Drop
+        initSortable();
     };
 
     // Helper to save to local storage
     function saveToLocalStorage() {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(jadwalList));
+        localStorage.setItem(SORT_STATE_KEY, isManualSort.toString());
     }
 
-    // 2. Logic to Show/Hide ROSE Sub-dropdown
+    // 2. Logic to Show/Hide Custom Menus (ROSE & Lokasi Lainnya)
     const tindakanSelect = document.getElementById('tindakan');
     const roseSubGroup = document.getElementById('roseSubGroup');
     const roseSubSelect = document.getElementById('roseSub');
@@ -518,14 +554,85 @@
         }
     });
 
+    const lokasiSelect = document.getElementById('lokasi');
+    const lokasiLainnya = document.getElementById('lokasiLainnya');
+
+    lokasiSelect.addEventListener('change', function() {
+        if(this.value === 'Lainnya') {
+            lokasiLainnya.style.display = 'block';
+            lokasiLainnya.required = true;
+        } else {
+            lokasiLainnya.style.display = 'none';
+            lokasiLainnya.required = false;
+            lokasiLainnya.value = "";
+        }
+    });
+
     // Generate unbreakable unique ID
     function generateId() {
         return Date.now().toString(36) + Math.random().toString(36).substring(2);
     }
 
+    // --- SEPARATED SORT LOGIC ---
+    function sortJadwalList() {
+        function getCategory(entry) {
+            if (entry.tindakan === 'BAJAH') {
+                if (entry.lokasi === 'ICC') return 'BAJAH ICC';
+                return 'BAJAH';
+            }
+            if (entry.tindakan === 'ROSE') {
+                let detail = entry.rose_detail;
+                if (detail === 'BAJAH' || detail === 'Pendampingan BAJAH') return 'ROSE pendampingan BAJAH';
+                return 'ROSE | ' + detail;
+            }
+            return entry.tindakan; 
+        }
+
+        const priorityOrder = {
+            "Frozen": 1,
+            "BAJAH": 2,
+            "BAJAH ICC": 3,
+            "ROSE pendampingan BAJAH": 4,
+            "ROSE | MSCT Scan": 5,
+            "ROSE | Bronkoskopi": 6,
+            "ROSE | Biopsi Ginjal": 7,
+            "ROSE | Biopsi Hepar": 8, 
+            "ROSE | Biopsi Bedah Anak": 9,
+            "ROSE | Biopsi THT": 10
+        };
+
+        jadwalList.sort((a, b) => {
+            const catA = getCategory(a);
+            const catB = getCategory(b);
+
+            const prioA = priorityOrder[catA] || 99;
+            const prioB = priorityOrder[catB] || 99;
+
+            if (prioA !== prioB) return prioA - prioB;
+
+            const dateTimeA = `${a.tanggal}T${a.jam}`;
+            const dateTimeB = `${b.tanggal}T${b.jam}`;
+            
+            if (dateTimeA < dateTimeB) return -1;
+            if (dateTimeA > dateTimeB) return 1;
+            return 0;
+        });
+    }
+
+    // Force Sort via Button
+    function forceAutoSort() {
+        isManualSort = false;
+        sortJadwalList();
+        renderTable();
+        saveToLocalStorage();
+    }
+
     // 3. Submit Handler
     document.getElementById('tindakanForm').addEventListener('submit', function(e) {
         e.preventDefault();
+
+        // Handle Lokasi Lainnya Logic
+        const finalLokasi = (lokasiSelect.value === 'Lainnya') ? lokasiLainnya.value : lokasiSelect.value;
 
         const rawData = {
             id: currentEditId ? currentEditId : generateId(), 
@@ -537,7 +644,7 @@
             rose_detail: document.getElementById('roseSub').value,
             regio: document.getElementById('regio').value,
             konsulen: document.getElementById('konsulen').value,
-            lokasi: document.getElementById('lokasi').value,
+            lokasi: finalLokasi, // Saved actual location text
             senior: document.getElementById('senior').value,
             asisten: document.getElementById('asisten').value,
             tanggal: document.getElementById('tanggal').value,
@@ -555,8 +662,13 @@
             jadwalList.push(rawData);
         }
 
+        // Only auto-sort if user hasn't dragged items around manually
+        if (!isManualSort) {
+            sortJadwalList();
+        }
+
         renderTable();
-        saveToLocalStorage(); // SAVE AFTER ADD/EDIT
+        saveToLocalStorage(); 
 
         // Clear form but keep sticky date
         const lastDate = document.getElementById('tanggal').value;
@@ -565,57 +677,16 @@
         
         roseSubGroup.style.display = 'none';
         roseSubSelect.required = false;
+        lokasiLainnya.style.display = 'none';
+        lokasiLainnya.required = false;
     });
 
-    // 4. Render Table
+    // 4. Render Table (Now just renders the array as-is)
     function renderTable() {
-        const tableBody = document.getElementById('resultTable').getElementsByTagName('tbody')[0];
+        const tableBody = document.getElementById('tbody-jadwal');
         tableBody.innerHTML = ""; 
 
-        function getCategory(entry) {
-            if (entry.tindakan === 'BAJAH') {
-                if (entry.lokasi === 'ICC') return 'BAJAH ICC';
-                return 'BAJAH';
-            }
-            if (entry.tindakan === 'ROSE') {
-                let detail = entry.rose_detail;
-                if (detail === 'BAJAH' || detail === 'Pendampingan BAJAH') return 'ROSE pendampingan BAJAH';
-                return 'ROSE | ' + detail;
-            }
-            return entry.tindakan; // Frozen
-        }
-
-        const priorityOrder = {
-            "Frozen": 1,
-            "BAJAH": 2,
-            "BAJAH ICC": 3,
-            "ROSE pendampingan BAJAH": 4,
-            "ROSE | MSCT Scan": 5,
-            "ROSE | Bronkoskopi": 6,
-            "ROSE | Biopsi Ginjal": 7,
-            "ROSE | Biopsi Hepar": 8, 
-            "ROSE | Biopsi Bedah Anak": 9,
-            "ROSE | Biopsi THT": 10
-        };
-
-        const sortedList =[...jadwalList].sort((a, b) => {
-            const catA = getCategory(a);
-            const catB = getCategory(b);
-
-            const prioA = priorityOrder[catA] || 99;
-            const prioB = priorityOrder[catB] || 99;
-
-            if (prioA !== prioB) return prioA - prioB;
-
-            const dateTimeA = `${a.tanggal}T${a.jam}`;
-            const dateTimeB = `${b.tanggal}T${b.jam}`;
-            
-            if (dateTimeA < dateTimeB) return -1;
-            if (dateTimeA > dateTimeB) return 1;
-            return 0;
-        });
-
-        sortedList.forEach((entry, index) => {
+        jadwalList.forEach((entry, index) => {
             const rowNumber = index + 1;
             const regioText = entry.regio ? `<br><span style="font-size:0.85em; color:#555;">(${entry.regio})</span>` : '';
             
@@ -673,9 +744,13 @@
 
             const newRow = tableBody.insertRow();
             newRow.className = rowClass;
+            newRow.setAttribute('data-id', entry.id); // For SortableJS to identify rows
 
             newRow.innerHTML = `
-                <td class="text-center">${rowNumber}</td>
+                <td class="text-center">
+                    <span class="drag-handle hide-on-export" title="Tahan dan geser untuk memindahkan">☰</span>
+                    ${rowNumber}
+                </td>
                 <td>
                     <strong>${entry.nama}</strong><br>
                     ${entry.usia} Th, RM: ${entry.norm}
@@ -696,11 +771,37 @@
                 <td class="text-center">${entry.asisten}</td>
                 <td class="text-center font-bold">${entry.lokasi}</td>
                 <td class="text-center">${entry.jam}</td>
-                <td class="text-center td-aksi"> 
+                <td class="text-center td-aksi hide-on-export"> 
                     <button class="btn-action btn-edit" onclick="editRow('${entry.id}')">Edit</button>
                     <button class="btn-action btn-delete" onclick="deleteRow('${entry.id}')">Hapus</button>
                 </td>
             `;
+        });
+    }
+
+    // Initialize SortableJS
+    function initSortable() {
+        const tbody = document.getElementById('tbody-jadwal');
+        new Sortable(tbody, {
+            animation: 150,
+            handle: '.drag-handle', // Only drag when clicking the ☰ icon
+            onEnd: function (evt) {
+                // User has manually reordered, so we freeze auto-sort
+                isManualSort = true;
+                
+                // Read new order from DOM
+                const rows = tbody.querySelectorAll('tr');
+                const newJadwalList =[];
+                rows.forEach(row => {
+                    const id = row.getAttribute('data-id');
+                    const item = jadwalList.find(i => i.id === id);
+                    if(item) newJadwalList.push(item);
+                });
+                
+                jadwalList = newJadwalList;
+                saveToLocalStorage();
+                renderTable(); // Re-render to fix "NO" numbering
+            }
         });
     }
 
@@ -709,11 +810,11 @@
         if(confirm('Hapus data ini?')) {
             jadwalList = jadwalList.filter(item => item.id !== id);
             renderTable();
-            saveToLocalStorage(); // SAVE AFTER DELETE
+            saveToLocalStorage(); 
         }
     }
 
-    // 6. Safe Edit 
+    // 6. Safe Edit
     function editRow(id) {
         const item = jadwalList.find(i => i.id === id);
         if(item) {
@@ -740,15 +841,26 @@
                 roseSubSelect.required = false;
             }
 
+            // Handle Lokasi Lainnya Edit Logic
+            const optionExists = Array.from(lokasiSelect.options).some(opt => opt.value === item.lokasi);
+            if (optionExists && item.lokasi !== 'Lainnya') {
+                lokasiSelect.value = item.lokasi;
+                lokasiLainnya.style.display = 'none';
+                lokasiLainnya.required = false;
+            } else {
+                lokasiSelect.value = 'Lainnya';
+                lokasiLainnya.style.display = 'block';
+                lokasiLainnya.required = true;
+                lokasiLainnya.value = item.lokasi;
+            }
+
             document.getElementById('regio').value = item.regio;
             document.getElementById('konsulen').value = item.konsulen;
-            document.getElementById('lokasi').value = item.lokasi;
             document.getElementById('senior').value = item.senior;
             document.getElementById('asisten').value = item.asisten;
             document.getElementById('tanggal').value = item.tanggal;
             document.getElementById('jam').value = item.jam;
 
-            // Change UI to reflect Edit Mode
             document.getElementById('btnSubmit').innerHTML = "Update Jadwal";
             document.getElementById('btnCancelEdit').style.display = "block";
             
@@ -760,16 +872,15 @@
     function cancelEdit() {
         currentEditId = null;
         
-        // Reset form but keep sticky date
         const lastDate = document.getElementById('tanggal').value;
         document.getElementById('tindakanForm').reset();
         document.getElementById('tanggal').value = lastDate;
 
-        // Reset Rose Dropdown
         roseSubGroup.style.display = 'none';
         roseSubSelect.required = false;
+        lokasiLainnya.style.display = 'none';
+        lokasiLainnya.required = false;
 
-        // Restore Buttons
         document.getElementById('btnSubmit').innerHTML = "Simpan ke Tabel";
         document.getElementById('btnCancelEdit').style.display = "none";
     }
@@ -783,7 +894,9 @@
 
         if(confirm('Hapus SEMUA data dari tabel ini? Tindakan ini tidak dapat dibatalkan!')) {
             jadwalList =[];
-            localStorage.removeItem(STORAGE_KEY); // CLEAR LOCAL STORAGE
+            isManualSort = false;
+            localStorage.removeItem(STORAGE_KEY); 
+            localStorage.removeItem(SORT_STATE_KEY); 
             renderTable();
             cancelEdit(); 
         }
@@ -863,8 +976,8 @@
                         jadwalList = mappedData;
                     }
 
-                    renderTable();
-                    saveToLocalStorage(); // SAVE AFTER IMPORT
+                    // Force sort on import to maintain tidiness
+                    forceAutoSort();
                     alert("Berhasil mengimport data.");
                 } else {
                     alert("Format file tidak valid.");
@@ -886,11 +999,10 @@
         }
         
         const tableWrapper = document.getElementById('tableToCapture');
-        const aksiHeader = document.getElementById('th-aksi');
-        const aksiCells = document.querySelectorAll('.td-aksi');
+        const hideElements = document.querySelectorAll('.hide-on-export');
         
-        if(aksiHeader) aksiHeader.style.display = 'none';
-        aksiCells.forEach(td => td.style.display = 'none');
+        // Hide elements not needed in print (Action column, Drag handles)
+        hideElements.forEach(el => el.style.display = 'none');
 
         const originalOverflow = tableWrapper.style.overflow;
         const originalWidth = tableWrapper.style.width;
@@ -904,8 +1016,9 @@
             windowWidth: tableWrapper.scrollWidth,
             windowHeight: tableWrapper.scrollHeight
         }).then(canvas => {
-            if(aksiHeader) aksiHeader.style.display = '';
-            aksiCells.forEach(td => td.style.display = '');
+            // Restore hidden elements
+            hideElements.forEach(el => el.style.display = '');
+            
             tableWrapper.style.overflow = originalOverflow;
             tableWrapper.style.width = originalWidth;
 
@@ -924,8 +1037,8 @@
         }).catch(err => {
             console.error(err);
             alert("Gagal mengexport gambar: " + err.message);
-            if(aksiHeader) aksiHeader.style.display = '';
-            aksiCells.forEach(td => td.style.display = '');
+            // Restore if fail
+            hideElements.forEach(el => el.style.display = '');
             tableWrapper.style.overflow = originalOverflow;
             tableWrapper.style.width = originalWidth;
         });
