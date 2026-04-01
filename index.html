@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jadwal Tindakan - Final V20 (Drag & Drop + Lokasi)</title>
+    <title>Jadwal Tindakan - Final V21 (Smart Group Sorting)</title>
     
     <!-- HTML2Canvas for JPG Export -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -393,9 +393,8 @@
                     <option value="Poli THT">Poli THT</option>
                     <option value="Dahlia">Dahlia</option> 
                     <option value="Cendrawasih">Cendrawasih</option>
-                    <option value="Lainnya">Lainnya...</option> <!-- Added Lainnya -->
+                    <option value="Lainnya">Lainnya...</option>
                 </select>
-                <!-- NEW: Input for manual location, hidden by default -->
                 <input type="text" id="lokasiLainnya" placeholder="Ketik lokasi manual" style="display:none; margin-top:8px;">
             </div>
 
@@ -490,7 +489,7 @@
     // 1. Storage & State Setup
     let jadwalList =[];
     let currentEditId = null; 
-    let isManualSort = false; // TRACKS IF USER DRAGGED ROWS
+    let isManualSort = false; // Tracks if user manually dragged rows
     const STORAGE_KEY = "jadwalTindakanPAData";
     const SORT_STATE_KEY = "jadwalTindakanSortState";
 
@@ -538,7 +537,7 @@
         localStorage.setItem(SORT_STATE_KEY, isManualSort.toString());
     }
 
-    // 2. Logic to Show/Hide Custom Menus (ROSE & Lokasi Lainnya)
+    // 2. Form UI Logic
     const tindakanSelect = document.getElementById('tindakan');
     const roseSubGroup = document.getElementById('roseSubGroup');
     const roseSubSelect = document.getElementById('roseSub');
@@ -568,13 +567,16 @@
         }
     });
 
-    // Generate unbreakable unique ID
+    // Generate unique ID
     function generateId() {
         return Date.now().toString(36) + Math.random().toString(36).substring(2);
     }
 
-    // --- SEPARATED SORT LOGIC ---
+    // --- NEW SMART SORT LOGIC ---
     function sortJadwalList() {
+        if (jadwalList.length === 0) return;
+
+        // Internal helper to define category names
         function getCategory(entry) {
             if (entry.tindakan === 'BAJAH') {
                 if (entry.lokasi === 'ICC') return 'BAJAH ICC';
@@ -588,33 +590,57 @@
             return entry.tindakan; 
         }
 
-        const priorityOrder = {
+        // 1. Calculate Earliest Time per Group dynamically
+        const categoryMinTime = {};
+        jadwalList.forEach(entry => {
+            const cat = getCategory(entry);
+            const dateTime = `${entry.tanggal}T${entry.jam}`;
+            if (!categoryMinTime[cat] || dateTime < categoryMinTime[cat]) {
+                categoryMinTime[cat] = dateTime;
+            }
+        });
+
+        // 2. Define Main Priorities (Only Frozen, BAJAH, BAJAH ICC are hardcoded at top)
+        const mainPriority = {
             "Frozen": 1,
             "BAJAH": 2,
-            "BAJAH ICC": 3,
-            "ROSE pendampingan BAJAH": 4,
-            "ROSE | MSCT Scan": 5,
-            "ROSE | Bronkoskopi": 6,
-            "ROSE | Biopsi Ginjal": 7,
-            "ROSE | Biopsi Hepar": 8, 
-            "ROSE | Biopsi Bedah Anak": 9,
-            "ROSE | Biopsi THT": 10
+            "BAJAH ICC": 3
         };
 
+        function getMainPriority(cat) {
+            if (mainPriority[cat]) return mainPriority[cat];
+            if (cat.startsWith("ROSE")) return 4; // All ROSE variants share Priority 4
+            return 5;
+        }
+
+        // 3. Apply the Sort
         jadwalList.sort((a, b) => {
             const catA = getCategory(a);
             const catB = getCategory(b);
 
-            const prioA = priorityOrder[catA] || 99;
-            const prioB = priorityOrder[catB] || 99;
+            const prioA = getMainPriority(catA);
+            const prioB = getMainPriority(catB);
 
+            // A. Sort by Main Priority (Frozen -> Bajah -> Rose)
             if (prioA !== prioB) return prioA - prioB;
 
+            // B. If both are ROSE but DIFFERENT subgroups, sort by the Group's Earliest Time
+            if (prioA === 4 && prioB === 4 && catA !== catB) {
+                const minTimeA = categoryMinTime[catA];
+                const minTimeB = categoryMinTime[catB];
+                if (minTimeA !== minTimeB) {
+                    return minTimeA < minTimeB ? -1 : 1;
+                }
+                return catA.localeCompare(catB); // Tie-breaker
+            }
+
+            // C. Sort individually by time within the exact same group
             const dateTimeA = `${a.tanggal}T${a.jam}`;
             const dateTimeB = `${b.tanggal}T${b.jam}`;
-            
-            if (dateTimeA < dateTimeB) return -1;
-            if (dateTimeA > dateTimeB) return 1;
+            if (dateTimeA !== dateTimeB) {
+                return dateTimeA < dateTimeB ? -1 : 1;
+            }
+
             return 0;
         });
     }
@@ -631,7 +657,6 @@
     document.getElementById('tindakanForm').addEventListener('submit', function(e) {
         e.preventDefault();
 
-        // Handle Lokasi Lainnya Logic
         const finalLokasi = (lokasiSelect.value === 'Lainnya') ? lokasiLainnya.value : lokasiSelect.value;
 
         const rawData = {
@@ -644,7 +669,7 @@
             rose_detail: document.getElementById('roseSub').value,
             regio: document.getElementById('regio').value,
             konsulen: document.getElementById('konsulen').value,
-            lokasi: finalLokasi, // Saved actual location text
+            lokasi: finalLokasi, 
             senior: document.getElementById('senior').value,
             asisten: document.getElementById('asisten').value,
             tanggal: document.getElementById('tanggal').value,
@@ -662,7 +687,7 @@
             jadwalList.push(rawData);
         }
 
-        // Only auto-sort if user hasn't dragged items around manually
+        // Auto-sort if user hasn't frozen the list with manual drag
         if (!isManualSort) {
             sortJadwalList();
         }
@@ -670,7 +695,6 @@
         renderTable();
         saveToLocalStorage(); 
 
-        // Clear form but keep sticky date
         const lastDate = document.getElementById('tanggal').value;
         document.getElementById('tindakanForm').reset();
         document.getElementById('tanggal').value = lastDate;
@@ -681,7 +705,7 @@
         lokasiLainnya.required = false;
     });
 
-    // 4. Render Table (Now just renders the array as-is)
+    // 4. Render Table (No sorting happens here anymore)
     function renderTable() {
         const tableBody = document.getElementById('tbody-jadwal');
         tableBody.innerHTML = ""; 
@@ -744,7 +768,7 @@
 
             const newRow = tableBody.insertRow();
             newRow.className = rowClass;
-            newRow.setAttribute('data-id', entry.id); // For SortableJS to identify rows
+            newRow.setAttribute('data-id', entry.id); 
 
             newRow.innerHTML = `
                 <td class="text-center">
@@ -779,17 +803,16 @@
         });
     }
 
-    // Initialize SortableJS
+    // Initialize SortableJS (Drag & Drop)
     function initSortable() {
         const tbody = document.getElementById('tbody-jadwal');
         new Sortable(tbody, {
             animation: 150,
-            handle: '.drag-handle', // Only drag when clicking the ☰ icon
+            handle: '.drag-handle', 
             onEnd: function (evt) {
-                // User has manually reordered, so we freeze auto-sort
-                isManualSort = true;
+                isManualSort = true; // Lock sorting
                 
-                // Read new order from DOM
+                // Rebuild array in new order
                 const rows = tbody.querySelectorAll('tr');
                 const newJadwalList =[];
                 rows.forEach(row => {
@@ -800,7 +823,7 @@
                 
                 jadwalList = newJadwalList;
                 saveToLocalStorage();
-                renderTable(); // Re-render to fix "NO" numbering
+                renderTable(); // Fix the NO column
             }
         });
     }
@@ -820,7 +843,6 @@
         if(item) {
             currentEditId = id; 
 
-            // Populate Form
             document.getElementById('nama').value = item.nama;
             document.getElementById('usia').value = item.usia;
             document.getElementById('norm').value = item.norm;
@@ -841,7 +863,7 @@
                 roseSubSelect.required = false;
             }
 
-            // Handle Lokasi Lainnya Edit Logic
+            // Handle Lokasi Lainnya
             const optionExists = Array.from(lokasiSelect.options).some(opt => opt.value === item.lokasi);
             if (optionExists && item.lokasi !== 'Lainnya') {
                 lokasiSelect.value = item.lokasi;
@@ -976,8 +998,12 @@
                         jadwalList = mappedData;
                     }
 
-                    // Force sort on import to maintain tidiness
-                    forceAutoSort();
+                    if (!isManualSort) {
+                        sortJadwalList();
+                    }
+                    
+                    renderTable();
+                    saveToLocalStorage();
                     alert("Berhasil mengimport data.");
                 } else {
                     alert("Format file tidak valid.");
@@ -1001,7 +1027,6 @@
         const tableWrapper = document.getElementById('tableToCapture');
         const hideElements = document.querySelectorAll('.hide-on-export');
         
-        // Hide elements not needed in print (Action column, Drag handles)
         hideElements.forEach(el => el.style.display = 'none');
 
         const originalOverflow = tableWrapper.style.overflow;
@@ -1016,9 +1041,7 @@
             windowWidth: tableWrapper.scrollWidth,
             windowHeight: tableWrapper.scrollHeight
         }).then(canvas => {
-            // Restore hidden elements
             hideElements.forEach(el => el.style.display = '');
-            
             tableWrapper.style.overflow = originalOverflow;
             tableWrapper.style.width = originalWidth;
 
@@ -1037,7 +1060,6 @@
         }).catch(err => {
             console.error(err);
             alert("Gagal mengexport gambar: " + err.message);
-            // Restore if fail
             hideElements.forEach(el => el.style.display = '');
             tableWrapper.style.overflow = originalOverflow;
             tableWrapper.style.width = originalWidth;
